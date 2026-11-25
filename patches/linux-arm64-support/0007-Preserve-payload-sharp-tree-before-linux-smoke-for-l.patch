@@ -1,0 +1,52 @@
+From 57fa6c28049b5ccd71b131e6ed4ec4735ff1cf5d Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 16:06:43 -0800
+Subject: [PATCH 07/19] Preserve payload sharp tree before linux smoke for
+ local SIGSEGV diagnosis
+
+---
+ apps/desktop/scripts/prepare-dsh.ts | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
+index 7f658d5e..64e3e606 100644
+--- a/apps/desktop/scripts/prepare-dsh.ts
++++ b/apps/desktop/scripts/prepare-dsh.ts
+@@ -2,9 +2,9 @@
+ 
+ import { resolveMacOSSignatureCacheDirectory } from './macos-signature-cache-directory.mjs'
+ import { packagingStep } from './packaging-step.mjs'
+-import { spawn } from 'node:child_process'
++import { execFileSync, spawn } from 'node:child_process'
+ import { createHash } from 'node:crypto'
+-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
++import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+ import { tmpdir } from 'node:os'
+ import { delimiter, join, relative, resolve } from 'node:path'
+ import { desktopNodeEnvironment } from '../src/node-environment.ts'
+@@ -176,6 +176,22 @@ async function main(): Promise<void> {
+       return writeRuntime(DSH_OUTPUT_ROOT, release, packageSet.packages.map(entry => entry.name), target)
+     })
+     const descriptor = await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:verify-before-smoke', () => verifyDesktopRuntime(DSH_OUTPUT_ROOT, release.version, target))
++    // Local linux-arm64 diagnosis: preserve the payload sharp tree before the smoke, whose SIGSEGV
++    // otherwise takes the materialized modules with it via the failure cleanup below.
++    if (target.name === 'linux-arm64') {
++      const diagnosticRoot = join(BUILD_PATHS.root, 'sharp-diag')
++      rmSync(diagnosticRoot, { recursive: true, force: true })
++      mkdirSync(diagnosticRoot, { recursive: true })
++      cpSync(join(BUILD_ROOT, 'node_modules', '@img'), join(diagnosticRoot, 'img'), { recursive: true, dereference: true })
++      cpSync(join(BUILD_ROOT, 'node_modules', 'sharp'), join(diagnosticRoot, 'sharp'), { recursive: true, dereference: true })
++      for (const image of readdirSync(join(diagnosticRoot, 'img'))) {
++        for (const candidate of [join(diagnosticRoot, 'img', image, 'lib', `${image}.node`), join(diagnosticRoot, 'img', image, `${image}.node`)]) {
++          if (existsSync(candidate)) {
++            writeFileSync(join(diagnosticRoot, `ldd-${image}.txt`), execFileSync('ldd', [candidate], { encoding: 'utf8' }))
++          }
++        }
++      }
++    }
+     if (!process.argv.includes('--defer-runtime-smoke')) {
+       await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:smoke', () => smokePreparedRuntime(DSH_OUTPUT_ROOT, NODE, RUNTIME_ROOT, descriptor))
+       await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:verify-after-smoke', () => verifyDesktopRuntime(DSH_OUTPUT_ROOT, release.version, target))
+-- 
+2.56.1
+

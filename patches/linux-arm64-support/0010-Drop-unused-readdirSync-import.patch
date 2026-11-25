@@ -1,0 +1,25 @@
+From a65f7f375ed7f8efb3cd8e916aca32570897df89 Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 16:11:45 -0800
+Subject: [PATCH 10/19] Drop unused readdirSync import
+
+---
+ apps/desktop/scripts/prepare-dsh.ts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
+index 6cfd12c6..bce2fdee 100644
+--- a/apps/desktop/scripts/prepare-dsh.ts
++++ b/apps/desktop/scripts/prepare-dsh.ts
+@@ -4,7 +4,7 @@ import { resolveMacOSSignatureCacheDirectory } from './macos-signature-cache-dir
+ import { packagingStep } from './packaging-step.mjs'
+ import { execFileSync, spawn } from 'node:child_process'
+ import { createHash } from 'node:crypto'
+-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
++import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+ import { tmpdir } from 'node:os'
+ import { delimiter, join, relative, resolve } from 'node:path'
+ import { desktopNodeEnvironment } from '../src/node-environment.ts'
+-- 
+2.56.1
+

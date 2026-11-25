@@ -1,0 +1,27 @@
+From 38fb0edbc24d76d8790918d68b20bb8bf30add9a Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 16:07:38 -0800
+Subject: [PATCH 08/19] Fix linux diagnostic guard to compile against
+ release-target union
+
+---
+ apps/desktop/scripts/prepare-dsh.ts | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
+index 64e3e606..f1b88529 100644
+--- a/apps/desktop/scripts/prepare-dsh.ts
++++ b/apps/desktop/scripts/prepare-dsh.ts
+@@ -178,7 +178,8 @@ async function main(): Promise<void> {
+     const descriptor = await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:verify-before-smoke', () => verifyDesktopRuntime(DSH_OUTPUT_ROOT, release.version, target))
+     // Local linux-arm64 diagnosis: preserve the payload sharp tree before the smoke, whose SIGSEGV
+     // otherwise takes the materialized modules with it via the failure cleanup below.
+-    if (target.name === 'linux-arm64') {
++    // (platform widens through `as string`: the release-target union has no 'linux' literal.)
++    if ((target.platform as string) === 'linux') {
+       const diagnosticRoot = join(BUILD_PATHS.root, 'sharp-diag')
+       rmSync(diagnosticRoot, { recursive: true, force: true })
+       mkdirSync(diagnosticRoot, { recursive: true })
+-- 
+2.56.1
+

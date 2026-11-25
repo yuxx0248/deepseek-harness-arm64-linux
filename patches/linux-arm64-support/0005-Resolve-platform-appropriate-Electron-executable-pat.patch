@@ -1,0 +1,27 @@
+From 55853bf0222e14f2e14b3e447b7745935e0e147f Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 15:58:47 -0800
+Subject: [PATCH 05/19] Resolve platform-appropriate Electron executable path
+ in runtime preparation
+
+---
+ apps/desktop/scripts/prepare-runtime.ts | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/apps/desktop/scripts/prepare-runtime.ts b/apps/desktop/scripts/prepare-runtime.ts
+index 4e338532..a18a850e 100644
+--- a/apps/desktop/scripts/prepare-runtime.ts
++++ b/apps/desktop/scripts/prepare-runtime.ts
+@@ -27,7 +27,8 @@ async function prepareElectron({ platform, arch }: DesktopTarget): Promise<strin
+     () => downloadArtifact({ version, platform, arch, artifactName: 'electron', cacheRoot: BUILD_PATHS.downloads }))
+   rmSync(BUILD_PATHS.electron, { recursive: true, force: true })
+   await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'extract:electron', () => extractZip(archive, { dir: BUILD_PATHS.electron }))
+-  const executable = join(BUILD_PATHS.electron, platform === 'win32' ? 'electron.exe' : 'Electron.app/Contents/MacOS/Electron')
++  const executable = join(BUILD_PATHS.electron, platform === 'win32' ? 'electron.exe'
++    : platform === 'darwin' ? 'Electron.app/Contents/MacOS/Electron' : 'electron')
+   return execFileSync(executable, ['-p', 'process.versions.node'], {
+     encoding: 'utf8', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+   }).trim()
+-- 
+2.56.1
+

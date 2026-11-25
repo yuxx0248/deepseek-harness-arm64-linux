@@ -1,0 +1,40 @@
+From a1d06c8aeb0229c3757bd95cc6601cf69bb88f38 Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 16:37:56 -0800
+Subject: [PATCH 17/19] Move executableName to the configuration root for the
+ linux AppImage
+
+---
+ apps/desktop/scripts/electron-builder-config.mjs | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
+index 43146ea7..388fd79b 100644
+--- a/apps/desktop/scripts/electron-builder-config.mjs
++++ b/apps/desktop/scripts/electron-builder-config.mjs
+@@ -117,6 +117,9 @@ export function createElectronBuilderConfig(
+       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
+     },
+     productName: 'DeepSeek Harness',
++    // The scoped workspace package name sanitizes to '@deepseek-aidsh-desktop', which the
++    // AppImage tooling rejects as an executable name; give linux a clean one.
++    executableName: 'deepseek-harness',
+     // The default copyright uses author.name; this line names the product instead.
+     copyright: `Copyright © ${new Date().getFullYear()} \${productName}`,
+     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
+@@ -257,10 +260,8 @@ export function createElectronBuilderConfig(
+     linux: {
+       category: 'Development',
+       target: ['AppImage'],
+-      // The scoped workspace package name sanitizes to '@deepseek-aidsh-desktop', which the
+-      // AppImage tooling rejects; give the linux executable and desktop entry clean names.
+-      executableName: 'deepseek-harness',
+-      desktopName: 'deepseek-harness',
++      // executableName lives at the configuration root; this makes the desktop entry's
++      // StartupWMClass follow it instead of the sanitized '@deepseek-aidsh-desktop' default.
+       syncDesktopName: true,
+     },
+     nsis: {
+-- 
+2.56.1
+

@@ -1,0 +1,46 @@
+From eae5318014fa065900d8889647e753ff73e25296 Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 16:42:58 -0800
+Subject: [PATCH 18/19] Skip mandatory-update policy embedding for linux builds
+ and allow linux in the policy platform check
+
+---
+ apps/desktop/scripts/electron-builder-config.mjs | 4 +++-
+ apps/desktop/src/main.ts                         | 4 ++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
+index 388fd79b..82f8ac50 100644
+--- a/apps/desktop/scripts/electron-builder-config.mjs
++++ b/apps/desktop/scripts/electron-builder-config.mjs
+@@ -66,7 +66,9 @@ export function createElectronBuilderConfig(
+   if (skipNotarization && (unsigned || resolvedPlatform !== 'darwin')) throw new Error('Skipping notarization requires a signed macOS build')
+   const packagesMacOS = targetPlatform === 'darwin' || (targetPlatform === undefined && hostPlatform === 'darwin')
+   const packagesWindows = resolvedPlatform === 'win32'
+-  const policy = packagesMacOS && unsigned ? undefined : resolveDesktopPolicyEnvironment(env)
++  // Local linux builds ship no mandatory-update policy: the placeholder origin would otherwise
++  // embed into the manifest and the shell would treat linux as an unsupported policy platform.
++  const policy = (packagesMacOS && unsigned) || resolvedPlatform === 'linux' ? undefined : resolveDesktopPolicyEnvironment(env)
+   if (resolvedPlatform === 'win32') installWindowsDirectoryInstaller()
+   const macOSSigning = packagesMacOS && !unsigned ? resolveMacOSSigningEnvironment(env) : undefined
+   if (packagesMacOS && !unsigned && !skipNotarization) resolveMacOSNotarizationEnvironment(env)
+diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
+index 291ed084..57426bdb 100644
+--- a/apps/desktop/src/main.ts
++++ b/apps/desktop/src/main.ts
+@@ -1569,10 +1569,10 @@ async function main(): Promise<void> {
+         () => mandatoryUI?.confirmationWindow ?? currentDialogWindow(),
+         (event) => { console.info(`desktop policy authentication: ${event}`); updateJournal?.action(`policy-login-${event}`) })
+     }
+-    if (!['win32', 'darwin'].includes(process.platform) || !['x64', 'arm64'].includes(process.arch)) throw new Error('desktop policy: unsupported platform')
++    if (!['win32', 'darwin', 'linux'].includes(process.platform) || !['x64', 'arm64'].includes(process.arch)) throw new Error('desktop policy: unsupported platform')
+     let wasBlocking = false
+     mandatoryPolicy = new DesktopMandatoryUpdatePolicy(policyConfig, {
+-      platform: process.platform as 'win32' | 'darwin', arch: process.arch as 'x64' | 'arm64',
++      platform: process.platform as 'win32' | 'darwin' | 'linux', arch: process.arch as 'x64' | 'arm64',
+       get channel() { return updates.selectedChannel },
+       bundledDshVersion: app.isPackaged ? readDesktopRuntime(resources.dsh).release.version : app.getVersion(),
+     }, (state) => {
+-- 
+2.56.1
+

@@ -1,0 +1,32 @@
+From f2bd9558df29637754c4956407344472e0cd0501 Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 16:15:16 -0800
+Subject: [PATCH 11/19] Rebuild sharp from source against system libvips for
+ linux targets
+
+---
+ apps/desktop/scripts/prepare-dsh.ts | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
+index bce2fdee..77447757 100644
+--- a/apps/desktop/scripts/prepare-dsh.ts
++++ b/apps/desktop/scripts/prepare-dsh.ts
+@@ -142,6 +142,14 @@ async function main(): Promise<void> {
+     const packageSet = readDesktopCorePackageSet(BUILD_ROOT, release.version)
+     const targetName = resolveDesktopBuildTarget()
+     const target = desktopTargetPlatform(targetName)
++    // sharp's prebuilt Linux libvips crashes under Electron with a NULL vtable in g_object_unref:
++    // Electron leaks the system glib into the process namespace while sharp's payload carries a
++    // vendored glib (sharp.pixelplumbing.com/install#electron-and-linux, electron#46323).
++    // Rebuilding sharp against the system libvips gives both a single shared glib.
++    // (platform widens through `as string`: the release-target union has no 'linux' literal.)
++    if ((target.platform as string) === 'linux') {
++      await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:rebuild-sharp', () => runPnpm(['rebuild', 'sharp', '--config.build-from-source=true']))
++    }
+     const modules = join(BUILD_ROOT, 'node_modules')
+     const officeManifest = JSON.parse(readFileSync(join(modules, '@deepseek-ai/libreoffice-kit/package.json'), 'utf8'))
+     const officeEngine = selectOfficeEngine(officeManifest, target)
+-- 
+2.56.1
+

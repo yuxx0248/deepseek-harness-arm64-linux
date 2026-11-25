@@ -1,0 +1,62 @@
+From 83aae1a7b8ad00d453b15f477defd4355061e6f5 Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 16:10:45 -0800
+Subject: [PATCH 09/19] Snapshot materialized sharp tree and probe it before
+ the runtime smoke
+
+---
+ apps/desktop/scripts/prepare-dsh.ts | 33 ++++++++++++++++++++---------
+ 1 file changed, 23 insertions(+), 10 deletions(-)
+
+diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
+index f1b88529..6cfd12c6 100644
+--- a/apps/desktop/scripts/prepare-dsh.ts
++++ b/apps/desktop/scripts/prepare-dsh.ts
+@@ -176,21 +176,34 @@ async function main(): Promise<void> {
+       return writeRuntime(DSH_OUTPUT_ROOT, release, packageSet.packages.map(entry => entry.name), target)
+     })
+     const descriptor = await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:verify-before-smoke', () => verifyDesktopRuntime(DSH_OUTPUT_ROOT, release.version, target))
+-    // Local linux-arm64 diagnosis: preserve the payload sharp tree before the smoke, whose SIGSEGV
+-    // otherwise takes the materialized modules with it via the failure cleanup below.
++    // Local linux-arm64 diagnosis: preserve the exact materialized sharp tree the smoke will load,
++    // whose SIGSEGV otherwise takes the payload with it via the failure cleanup below, and probe
++    // sharp against that tree under Electron's Node mode before the real smoke runs.
+     // (platform widens through `as string`: the release-target union has no 'linux' literal.)
+     if ((target.platform as string) === 'linux') {
+       const diagnosticRoot = join(BUILD_PATHS.root, 'sharp-diag')
+       rmSync(diagnosticRoot, { recursive: true, force: true })
+       mkdirSync(diagnosticRoot, { recursive: true })
+-      cpSync(join(BUILD_ROOT, 'node_modules', '@img'), join(diagnosticRoot, 'img'), { recursive: true, dereference: true })
+-      cpSync(join(BUILD_ROOT, 'node_modules', 'sharp'), join(diagnosticRoot, 'sharp'), { recursive: true, dereference: true })
+-      for (const image of readdirSync(join(diagnosticRoot, 'img'))) {
+-        for (const candidate of [join(diagnosticRoot, 'img', image, 'lib', `${image}.node`), join(diagnosticRoot, 'img', image, `${image}.node`)]) {
+-          if (existsSync(candidate)) {
+-            writeFileSync(join(diagnosticRoot, `ldd-${image}.txt`), execFileSync('ldd', [candidate], { encoding: 'utf8' }))
+-          }
+-        }
++      const payloadModules = join(DSH_OUTPUT_ROOT, 'node_modules')
++      cpSync(join(payloadModules, '@img'), join(diagnosticRoot, 'img'), { recursive: true, dereference: true })
++      cpSync(join(payloadModules, 'sharp'), join(diagnosticRoot, 'sharp'), { recursive: true, dereference: true })
++      writeFileSync(join(diagnosticRoot, 'filelist.txt'), execFileSync('find', [payloadModules, '-maxdepth', '2'], { encoding: 'utf8' }))
++      const probePath = join(diagnosticRoot, 'probe.cjs')
++      writeFileSync(probePath, [
++        `const sharp = require(${JSON.stringify(join(payloadModules, 'sharp'))});`,
++        'const pixel = Buffer.from([17, 103, 231]);',
++        'sharp(pixel, { raw: { width: 1, height: 1, channels: 3 } }).png().toBuffer()',
++        '.then(buffer => { console.log(\'sharp-diag: MATERIALIZED-SHARP-OK\', buffer.length); process.exit(0) },',
++        'error => { console.error(\'sharp-diag: MATERIALIZED-SHARP-ERR\', error.message); process.exit(1) });',
++      ].join('\n'))
++      try {
++        const probe = execFileSync(NODE, [probePath], {
++          encoding: 'utf8', timeout: 30_000,
++          env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', NODE_OPTIONS: '' },
++        })
++        console.log(probe.trim())
++      } catch (error: unknown) {
++        console.log('sharp-diag: probe failed:', error instanceof Error ? error.message : error)
+       }
+     }
+     if (!process.argv.includes('--defer-runtime-smoke')) {
+-- 
+2.56.1
+
