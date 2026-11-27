@@ -1,0 +1,35 @@
+From bd350f00e2a3d2e44cf27bd227d5935d0d79d2de Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 16:22:47 -0800
+Subject: [PATCH 13/20] Fix relink step: import readdirSync, async packaging
+ callback
+
+---
+ apps/desktop/scripts/prepare-dsh.ts | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
+index 00e6d498..9a6195a6 100644
+--- a/apps/desktop/scripts/prepare-dsh.ts
++++ b/apps/desktop/scripts/prepare-dsh.ts
+@@ -4,7 +4,7 @@ import { resolveMacOSSignatureCacheDirectory } from './macos-signature-cache-dir
+ import { packagingStep } from './packaging-step.mjs'
+ import { execFileSync, spawn } from 'node:child_process'
+ import { createHash } from 'node:crypto'
+-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
++import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+ import { tmpdir } from 'node:os'
+ import { delimiter, join, relative, resolve } from 'node:path'
+ import { desktopNodeEnvironment } from '../src/node-environment.ts'
+@@ -151,7 +151,7 @@ async function main(): Promise<void> {
+     // on Fedora, libvips-dev on Debian); the copied library keeps binding the target's own glib.
+     // (platform widens through `as string`: the release-target union has no 'linux' literal.)
+     if ((target.platform as string) === 'linux') {
+-      await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:relink-sharp-libvips', () => {
++      await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:relink-sharp-libvips', async () => {
+         const vendoredLibDir = join(modules, '@img', `sharp-libvips-linux-${target.arch}`, 'lib')
+         const vendoredName = readdirSync(vendoredLibDir).find(name => /^libvips-cpp\.so\.\d/u.test(name))
+         if (vendoredName === undefined) throw new Error('desktop runtime: vendored sharp libvips-cpp not found')
+-- 
+2.56.1
+

@@ -1,0 +1,25 @@
+From 8266cd21adfd443dbee6f6ceae6eaa0caf9889de Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 16:24:38 -0800
+Subject: [PATCH 14/20] Guard relink candidate directories with existence
+ checks
+
+---
+ apps/desktop/scripts/prepare-dsh.ts | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
+index 9a6195a6..895950f6 100644
+--- a/apps/desktop/scripts/prepare-dsh.ts
++++ b/apps/desktop/scripts/prepare-dsh.ts
+@@ -156,6 +156,7 @@ async function main(): Promise<void> {
+         const vendoredName = readdirSync(vendoredLibDir).find(name => /^libvips-cpp\.so\.\d/u.test(name))
+         if (vendoredName === undefined) throw new Error('desktop runtime: vendored sharp libvips-cpp not found')
+         const candidates = ['/usr/lib64', '/usr/lib', '/usr/lib/x86_64-linux-gnu', '/usr/lib/aarch64-linux-gnu']
++          .filter(directory => existsSync(directory))
+           .flatMap(directory => readdirSync(directory)
+             .filter(name => /^libvips-cpp\.so\.\d/u.test(name)).map(name => join(directory, name)))
+         if (candidates.length === 0) throw new Error('desktop runtime: no system libvips-cpp found; install the vips development package')
+-- 
+2.56.1
+

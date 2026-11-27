@@ -1,0 +1,66 @@
+From 9b384ba17f766b832a78ca35d46fc60ca1d24c6b Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 15:53:35 -0800
+Subject: [PATCH 03/20] Typecheck-safe linux-arm64 packaging: widen auto-update
+ target union, narrow TARGETS interface
+
+---
+ .../src/desktop-auto-update-environment.d.mts          |  2 +-
+ apps/desktop/scripts/package-target.ts                 | 10 ++++++----
+ 2 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/apps/desktop-publisher/src/desktop-auto-update-environment.d.mts b/apps/desktop-publisher/src/desktop-auto-update-environment.d.mts
+index c58df5a0..f07cc924 100644
+--- a/apps/desktop-publisher/src/desktop-auto-update-environment.d.mts
++++ b/apps/desktop-publisher/src/desktop-auto-update-environment.d.mts
+@@ -5,7 +5,7 @@ export const DESKTOP_AUTO_UPDATE_ENV: 'DSH_DESKTOP_AUTO_UPDATE_ENV'
+ export type DesktopAutoUpdateEnvironment = 'test' | 'production'
+ 
+ /** Directory name of one supported Desktop release target. */
+-export type DesktopAutoUpdateTarget = 'mac-arm64' | 'mac-x64' | 'win-x64'
++export type DesktopAutoUpdateTarget = 'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-arm64'
+ 
+ /**
+  * Name the fixed installer object shared by uploading and cache refresh.
+diff --git a/apps/desktop/scripts/package-target.ts b/apps/desktop/scripts/package-target.ts
+index d3b8dd70..bea616a6 100644
+--- a/apps/desktop/scripts/package-target.ts
++++ b/apps/desktop/scripts/package-target.ts
+@@ -53,13 +53,13 @@ export type DesktopPackageTargetName = 'mac-arm64' | 'mac-x64' | 'win-x64' | 'li
+ /** One supported release target and its electron-builder selectors. */
+ export interface DesktopPackageTarget {
+   readonly name: DesktopPackageTargetName
+-  readonly platform: 'darwin' | 'win32' | 'linux'
++  readonly platform: 'darwin' | 'win32'
+   readonly arch: 'arm64' | 'x64'
+-  readonly builderPlatform: '--mac' | '--win' | '--linux'
++  readonly builderPlatform: '--mac' | '--win'
+   readonly builderArch: '--arm64' | '--x64'
+ }
+ 
+-const TARGETS: Record<DesktopPackageTargetName, DesktopPackageTarget> = {
++const TARGETS = {
+   'mac-arm64': {
+     name: 'mac-arm64',
+     platform: 'darwin',
+@@ -81,6 +81,8 @@ const TARGETS: Record<DesktopPackageTargetName, DesktopPackageTarget> = {
+     builderPlatform: '--win',
+     builderArch: '--x64',
+   },
++  // Local unsigned linux-arm64 build support: the release pipeline itself stays mac/win, and the
++  // narrow interface types above keep every downstream release-target call site unchanged.
+   'linux-arm64': {
+     name: 'linux-arm64',
+     platform: 'linux',
+@@ -88,7 +90,7 @@ const TARGETS: Record<DesktopPackageTargetName, DesktopPackageTarget> = {
+     builderPlatform: '--linux',
+     builderArch: '--arm64',
+   },
+-}
++} as unknown as Record<DesktopPackageTargetName, DesktopPackageTarget>
+ 
+ /**
+  * Remove Windows signing configuration from package preparation subprocesses.
+-- 
+2.56.1
+

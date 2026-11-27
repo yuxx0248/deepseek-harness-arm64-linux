@@ -1,0 +1,64 @@
+From aaf0c3e0649c9d2a3e792a8459239b667177f557 Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 16:21:47 -0800
+Subject: [PATCH 12/20] Relink payload sharp to the system libvips on linux to
+ avoid the Electron glib clash
+
+---
+ apps/desktop/scripts/prepare-dsh.ts | 30 ++++++++++++++++++++++-------
+ 1 file changed, 23 insertions(+), 7 deletions(-)
+
+diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
+index 77447757..00e6d498 100644
+--- a/apps/desktop/scripts/prepare-dsh.ts
++++ b/apps/desktop/scripts/prepare-dsh.ts
+@@ -142,15 +142,30 @@ async function main(): Promise<void> {
+     const packageSet = readDesktopCorePackageSet(BUILD_ROOT, release.version)
+     const targetName = resolveDesktopBuildTarget()
+     const target = desktopTargetPlatform(targetName)
+-    // sharp's prebuilt Linux libvips crashes under Electron with a NULL vtable in g_object_unref:
+-    // Electron leaks the system glib into the process namespace while sharp's payload carries a
+-    // vendored glib (sharp.pixelplumbing.com/install#electron-and-linux, electron#46323).
+-    // Rebuilding sharp against the system libvips gives both a single shared glib.
++    const modules = join(BUILD_ROOT, 'node_modules')
++    // sharp's prebuilt Linux libvips statically carries its own glib, while Electron loads the
++    // system glib into the process; the mixed symbol binding crashes g_object_unref with a NULL
++    // vtable on the PNG decode path (sharp.pixelplumbing.com/install#electron-and-linux,
++    // electron#46323). Replace the vendored libvips-cpp with the build host's system library so
++    // the payload and Electron share one glib. The build host needs a system libvips (vips-devel
++    // on Fedora, libvips-dev on Debian); the copied library keeps binding the target's own glib.
+     // (platform widens through `as string`: the release-target union has no 'linux' literal.)
+     if ((target.platform as string) === 'linux') {
+-      await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:rebuild-sharp', () => runPnpm(['rebuild', 'sharp', '--config.build-from-source=true']))
++      await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:relink-sharp-libvips', () => {
++        const vendoredLibDir = join(modules, '@img', `sharp-libvips-linux-${target.arch}`, 'lib')
++        const vendoredName = readdirSync(vendoredLibDir).find(name => /^libvips-cpp\.so\.\d/u.test(name))
++        if (vendoredName === undefined) throw new Error('desktop runtime: vendored sharp libvips-cpp not found')
++        const candidates = ['/usr/lib64', '/usr/lib', '/usr/lib/x86_64-linux-gnu', '/usr/lib/aarch64-linux-gnu']
++          .flatMap(directory => readdirSync(directory)
++            .filter(name => /^libvips-cpp\.so\.\d/u.test(name)).map(name => join(directory, name)))
++        if (candidates.length === 0) throw new Error('desktop runtime: no system libvips-cpp found; install the vips development package')
++        candidates.sort()
++        const systemLibrary = candidates.at(-1)!
++        rmSync(join(vendoredLibDir, vendoredName))
++        copyFileSync(systemLibrary, join(vendoredLibDir, vendoredName))
++        console.log(`desktop runtime: relinked ${vendoredName} to ${systemLibrary}`)
++      })
+     }
+-    const modules = join(BUILD_ROOT, 'node_modules')
+     const officeManifest = JSON.parse(readFileSync(join(modules, '@deepseek-ai/libreoffice-kit/package.json'), 'utf8'))
+     const officeEngine = selectOfficeEngine(officeManifest, target)
+     mkdirSync(DSH_OUTPUT_ROOT, { recursive: true })
+@@ -201,7 +216,8 @@ async function main(): Promise<void> {
+         `const sharp = require(${JSON.stringify(join(payloadModules, 'sharp'))});`,
+         'const pixel = Buffer.from([17, 103, 231]);',
+         'sharp(pixel, { raw: { width: 1, height: 1, channels: 3 } }).png().toBuffer()',
+-        '.then(buffer => { console.log(\'sharp-diag: MATERIALIZED-SHARP-OK\', buffer.length); process.exit(0) },',
++        '.then(png => sharp(png).raw().toBuffer({ resolveWithObject: true }))',
++        '.then(decoded => { console.log(\'sharp-diag: MATERIALIZED-SHARP-OK\', decoded.info.width, decoded.info.height, decoded.info.channels); process.exit(0) },',
+         'error => { console.error(\'sharp-diag: MATERIALIZED-SHARP-ERR\', error.message); process.exit(1) });',
+       ].join('\n'))
+       try {
+-- 
+2.56.1
+

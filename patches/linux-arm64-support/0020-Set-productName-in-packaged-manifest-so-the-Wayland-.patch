@@ -1,0 +1,29 @@
+From 2da24921d730fa4a66afd2f0d7de2dc85b8ce604 Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Thu, 26 Nov 2026 16:23:41 -0800
+Subject: [PATCH 20/20] Set productName in packaged manifest so the Wayland
+ app_id follows it
+
+---
+ apps/desktop/scripts/electron-builder-config.mjs | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
+index 82f8ac50..6ea81fd3 100644
+--- a/apps/desktop/scripts/electron-builder-config.mjs
++++ b/apps/desktop/scripts/electron-builder-config.mjs
+@@ -114,6 +114,11 @@ export function createElectronBuilderConfig(
+     extraMetadata: {
+       dshDesktopAppId: appId,
+       dshDesktopUpdateChannel: update?.channel ?? 'nightly',
++      // The scoped workspace name makes Electron derive the Wayland app_id
++      // 'deepseek-ai-dsh-desktop', which never matches the desktop entry; set the
++      // product name so the app_id follows it. NOTE: this also moves the default
++      // Chromium userData directory; migrate ~/.config/@deepseek-ai/dsh-desktop once.
++      productName: 'DeepSeek Harness',
+       ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
+       ...buildVersion === productVersion ? {} : { version: buildVersion },
+       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
+-- 
+2.56.1
+

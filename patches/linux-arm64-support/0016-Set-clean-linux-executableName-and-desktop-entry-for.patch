@@ -1,0 +1,43 @@
+From 810203e247ea4883499d3372944a7fc8dc5021a0 Mon Sep 17 00:00:00 2001
+From: zuohang <jimyu1994@gmail.com>
+Date: Tue, 24 Nov 2026 16:34:54 -0800
+Subject: [PATCH 16/20] Set clean linux executableName and desktop entry for
+ the AppImage
+
+---
+ apps/desktop/scripts/electron-builder-config.mjs | 5 +++++
+ apps/desktop/scripts/smoke-packaged-runtime.ts   | 2 +-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
+index a777a058..43146ea7 100644
+--- a/apps/desktop/scripts/electron-builder-config.mjs
++++ b/apps/desktop/scripts/electron-builder-config.mjs
+@@ -257,6 +257,11 @@ export function createElectronBuilderConfig(
+     linux: {
+       category: 'Development',
+       target: ['AppImage'],
++      // The scoped workspace package name sanitizes to '@deepseek-aidsh-desktop', which the
++      // AppImage tooling rejects; give the linux executable and desktop entry clean names.
++      executableName: 'deepseek-harness',
++      desktopName: 'deepseek-harness',
++      syncDesktopName: true,
+     },
+     nsis: {
+       uninstallDisplayName: '${productName}',
+diff --git a/apps/desktop/scripts/smoke-packaged-runtime.ts b/apps/desktop/scripts/smoke-packaged-runtime.ts
+index a7ab254f..d00c377b 100644
+--- a/apps/desktop/scripts/smoke-packaged-runtime.ts
++++ b/apps/desktop/scripts/smoke-packaged-runtime.ts
+@@ -18,7 +18,7 @@ const application = windows ? join(artifacts, 'win-unpacked')
+     : join(artifacts, target === 'mac-arm64' ? 'mac-arm64' : 'mac', 'DeepSeek Harness.app', 'Contents')
+ const resources = join(application, windows || linux ? 'resources' : 'Resources')
+ const executable = windows ? join(application, 'DeepSeek Harness.exe')
+-  : linux ? join(application, '@deepseek-aidsh-desktop')
++  : linux ? join(application, 'deepseek-harness')
+     : join(application, 'MacOS', 'DeepSeek Harness')
+ const descriptor = await verifyDesktopRuntime(paths.dsh, readDesktopRuntime(paths.dsh).release.version,
+   resolveDesktopPackageTarget(target))
+-- 
+2.56.1
+
